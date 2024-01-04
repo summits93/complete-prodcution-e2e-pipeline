@@ -1,0 +1,22 @@
+# Specify proxy settings
+$proxyAddress = "http://proxy.example.com:8080"
+$proxyBypass = "localhost;*.internal.local"
+
+# Specify proxy credentials
+$proxyUsername = "yourUsername"
+$proxyPassword = "yourPassword"
+
+# Set proxy settings for current user
+$edgeRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+Set-ItemProperty -Path $edgeRegistryPath -Name ProxyEnable -Value 1
+Set-ItemProperty -Path $edgeRegistryPath -Name ProxyServer -Value $proxyAddress
+Set-ItemProperty -Path $edgeRegistryPath -Name ProxyOverride -Value $proxyBypass
+
+# Store credentials in Windows Credential Manager
+$credTarget = "EdgeProxyCredentials"
+$cred = New-Object -TypeName System.Management.Automation.PSCredential -ArgumentList $proxyUsername, (ConvertTo-SecureString -String $proxyPassword -AsPlainText -Force)
+cmdkey /generic:$credTarget /user:$($cred.UserName) /pass:$($cred.GetNetworkCredential().Password)
+
+# Restart Edge to apply changes
+Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue
+Start-Process msedge
