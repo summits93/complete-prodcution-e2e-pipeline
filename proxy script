@@ -1,0 +1,32 @@
+# Specify proxy settings
+$proxyAddress = "http://proxy.example.com:8080"
+$proxyBypass = "localhost;*.internal.local"
+
+# Specify proxy credentials
+$proxyUsername = "yourUsername"
+$proxyPassword = "yourPassword"
+
+# Set proxy settings for current user
+$edgeRegistryPath = "HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings"
+Set-ItemProperty -Path $edgeRegistryPath -Name ProxyEnable -Value 1
+Set-ItemProperty -Path $edgeRegistryPath -Name ProxyServer -Value $proxyAddress
+Set-ItemProperty -Path $edgeRegistryPath -Name ProxyOverride -Value $proxyBypass
+
+# Create and encrypt credentials
+$securePassword = ConvertTo-SecureString -String $proxyPassword -AsPlainText -Force
+$proxyCredentials = New-Object System.Management.Automation.PSCredential ($proxyUsername, $securePassword)
+
+# Set proxy credentials for Edge
+$edgePreferencesPath = "$env:LOCALAPPDATA\Microsoft\Edge\User Data\Default\Preferences"
+$edgePreferences = Get-Content -Raw -Path $edgePreferencesPath | ConvertFrom-Json
+$edgePreferences.network.shared_credentials_provider_enable = $true
+$edgePreferences.network.http_auth_shared_credentials_enabled = $true
+$edgePreferences.network.http_auth_enabled = $true
+$edgePreferences.network.proxy_require_shared_credentials = $false
+$edgePreferences.network.proxy_shared_credential_password = $proxyCredentials.GetNetworkCredential().Password
+$edgePreferences.network.proxy_shared_credential_username = $proxyCredentials.UserName
+$edgePreferences | ConvertTo-Json | Set-Content -Path $edgePreferencesPath -Force
+
+# Restart Edge to apply changes
+Stop-Process -Name msedge -Force -ErrorAction SilentlyContinue
+Start-Process msedge
